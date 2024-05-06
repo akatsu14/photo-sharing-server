@@ -23,7 +23,7 @@
     },
     "git pull ": {
       "name": "pull code",
-      "command": "git pull "
+      "command": "git pull be main"
     }
   }
 }
