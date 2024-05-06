@@ -22,5 +22,5 @@ router.get("/:id", async (request, response) => {
     response.status(500).send(err);
   }
 });
-
+router.post("/chuacolink", async (request, response) => {});
 module.exports = router;
