@@ -20,6 +20,10 @@
     "install": {
       "name": "install dependencies",
       "command": "yarn install"
+    },
+    "git pull ": {
+      "name": "pull code",
+      "command": "git pull "
     }
   }
 }
