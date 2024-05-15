@@ -28,7 +28,7 @@ router.get("/list", verifyToken, async (request, response) => {
 router.get("/:id", verifyToken, async (request, response) => {
   try {
     const user = await User.findById({ _id: request.params.id }).select(
-      "-password"
+      "-password",
     );
     if (user) response.status(200).json({ success: true, data: user });
     else response.status(404).json({ success: false, msg: "User not found" });
@@ -48,5 +48,4 @@ router.patch("/me", verifyToken, async (req, res) => {
     res.status(500).json({ success: false, msg: err });
   }
 });
->>>>>>> 367558ad8a0bcffd0c613913f5e1c006212f41a3
 module.exports = router;
