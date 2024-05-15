@@ -1,5 +1,5 @@
 {
-    "name": "nodejs-sandbox",
+  "name": "nodejs-sandbox",
   "version": "1.0.0",
   "description": "",
   "main": "index.html",
@@ -21,9 +21,14 @@
     "nodemon": "^3.0.1"
   },
   "dependencies": {
+    "argon2": "^0.40.1",
     "cors": "2.8.5",
     "dotenv": "16.4.5",
     "express": "4.19.2",
-    "mongoose": "8.3.3"
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "8.3.3",
+    "multer": "^1.4.5-lts.1",
+    "node-cache": "^5.1.2",
+    "socket.io": "^4.7.5"
   }
 }
