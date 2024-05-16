@@ -32,13 +32,14 @@ router.post("/:id", verifyToken, async (request, response) => {
       response
         .status(400)
         .json({ success: false, msg: "You already liked this post" });
-
-    const newLike = new Like({
-      user_id: request.user._id,
-      post_id: request.params.id,
-    });
-    await newLike.save();
-    response.status(201).json({ success: true, msg: "Like successfully" });
+    else {
+      const newLike = new Like({
+        user_id: request.user._id,
+        post_id: request.params.id,
+      });
+      await newLike.save();
+      response.status(201).json({ success: true, msg: "Like successfully" });
+    }
   } catch (error) {
     response.status(500).json({ success: false, msg: error });
   }

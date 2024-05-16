@@ -85,6 +85,7 @@ router.get("/:id", verifyToken, async (request, response) => {
       return {
         _id: photo._id,
         file_name: photo.file_name,
+        file_path: photo.file_path,
         date_time: photo.date_time,
         user_id: photo.user_id,
         comments: transformedComments,

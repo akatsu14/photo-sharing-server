@@ -7,7 +7,7 @@ const commentSchema = new mongoose.Schema({
   // The text of the comment.
   comment: String,
   // The date and time when the comment was created.
-  date_time: { type: Date, default: Date.now },
+  date_time: { type: Date, default: Date.now() },
   // The ID of the user who created the comment.
   user_id: mongoose.Schema.Types.ObjectId,
 });
@@ -21,7 +21,7 @@ const photoSchema = new mongoose.Schema({
   // Loại dữ liệu của file (ví dụ: image/png, image/jpeg)
   file_path: { type: String },
   // The date and time when the photo was added to the database.
-  date_time: { type: Date, default: Date.now },
+  date_time: { type: Date, default: Date.now() },
   // The ID of the user who created the photo.
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: "Users" },
   // Array of comment objects representing the comments made on this photo.

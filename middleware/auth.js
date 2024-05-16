@@ -11,11 +11,11 @@ const verifyToken = (req, res, next) => {
       if (err) res.status(403).json({ success: false, msg: "Invalid token" });
       else {
         let userNew = getOrSetCache(decoded.user._id + "");
-        // console.log(
-        //   "🚀 ~ verifyToken ~ userNew:",
-        //   decoded.user.version,
-        //   userNew.version
-        // );
+        console.log(
+          "🚀 ~ verifyToken ~ userNew:",
+          decoded.user.version,
+          userNew.version
+        );
         if (decoded.user.version !== userNew.version) {
           throw new Error("Invalid Token");
         }

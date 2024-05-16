@@ -34,12 +34,14 @@ router.post("/:id", verifyToken, async (req, res) => {
       return res
         .status(400)
         .json({ success: false, msg: "You already bookmarked this post" });
-    const newBookmark = new Bookmark({
-      post_id: req.params.id,
-      user_id: req.user._id,
-    });
-    await newBookmark.save();
-    res.status(201).json({ success: true, msg: "Bookmark successfully" });
+    else {
+      const newBookmark = new Bookmark({
+        post_id: req.params.id,
+        user_id: req.user._id,
+      });
+      await newBookmark.save();
+      res.status(201).json({ success: true, msg: "Bookmark successfully" });
+    }
   } catch (error) {
     res.status(500).json({ success: false, msg: error });
   }

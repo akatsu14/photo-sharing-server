@@ -7,6 +7,8 @@ const User = require("../db/userModel.js");
 const Photo = require("../db/photoModel.js");
 const Like = require("../db/likeModel.js");
 const Bookmark = require("../db/bookMarkModel.js");
+const Message = require("../db/messageModel");
+const Online = require("../db/onlineModel");
 const SchemaInfo = require("../db/schemaInfo.js");
 
 const versionString = "1.0";
@@ -23,6 +25,8 @@ async function dbLoad() {
   await Photo.deleteMany({});
   await Like.deleteMany({});
   await Bookmark.deleteMany({});
+  await Message.deleteMany({});
+  await Online.deleteMany({});
   await SchemaInfo.deleteMany({});
 
   const userModels = models.userListModel();

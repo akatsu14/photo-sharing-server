@@ -11,6 +11,10 @@ const CommentRouter = require("./routes/CommentRouter");
 const AuthRouter = require("./routes/AuthRouter");
 const BookmarkRouter = require("./routes/BookmarkRouter");
 const LikeRouter = require("./routes/LikeRouter");
+const MessageRouter = require("./routes/MessageRouter");
+const OnlineRouter = require("./routes/OnlineRouter");
+const Message = require("./db/messageModel");
+const Online = require("./db/onlineModel");
 
 dbConnect();
 
@@ -21,8 +25,10 @@ app.use("/admin", AuthRouter);
 app.use("/api/user", UserRouter);
 app.use("/api/photosOfUser", PhotoRouter);
 app.use("/api/likeOfPhoto", LikeRouter);
-app.use("/api/BookmarkOfPhoto", BookmarkRouter);
+app.use("/api/bookmarkOfPhoto", BookmarkRouter);
 app.use("/api/commentsOfUser", CommentRouter);
+app.use("/api/messageOfUser", MessageRouter);
+app.use("/api/onlineUser", OnlineRouter);
 app.get("/", (request, response) => {
   response.send({ message: "Hello from photo-sharing app API!" });
 });
@@ -32,6 +38,7 @@ app.listen(8081, () => {
 });
 
 const server = createServer(app);
+const userStatus = [];
 
 const io = new Server(server, {
   cors: {
@@ -40,84 +47,61 @@ const io = new Server(server, {
   },
 });
 
-// io.on("connection", (socket) => {
-//   console.log("Client connected");
-
-//   socket.on("clientMessage", (message) => {
-//     console.log("Received message from client:", message);
-//     socket.emit("serverMessage", "Hello from server!");
-//   });
-// });
-// io.on("connection", (socket) => {
-//   socket.on("chat message", (msg) => {
-//     console.log(msg);
-//     io.emit("chat message", msg);
-//   });
-
-//   socket.on("getAllGroups", (user) => {
-//     console.log(
-//       "🚀 ~ file: index.js:41 ~ chatgroups?.filter ~ chatgroups:",
-//       chatgroups,
-//       user
-//     );
-
-//     const data = chatgroups?.filter((item) => {
-//       return item?.user?.includes(user);
-//     });
-//     socket.emit("groupList", data);
-//   });
-
-//   socket.on("createNewGroup", (groupInfo) => {
-//     // console.log(currentGroupName);
-//     chatgroups.unshift({
-//       id: chatgroups.length + 1,
-//       currentGroupName: groupInfo?.currentGroupName,
-//       messages: [],
-//       user: groupInfo?.user,
-//     });
-//     socket.emit("groupList", chatgroups);
-//   });
-
-//   socket.on("findGroup", (id) => {
-//     const filteredGroup = chatgroups.filter((item) => item.id === id);
-//     socket.emit("foundGroup", filteredGroup[0]?.messages ?? "");
-//   });
-
-//   socket.on("newChatMessage", (data) => {
-//     const { currentChatMesage, groupIdentifier, currentUser, timeData } = data;
-
-//     console.log("🚀 ~ file: index.js:63 ~ socket.on ~ data:", data);
-
-//     const filteredGroup = chatgroups.filter(
-//       (item) => item.id === groupIdentifier
-//     );
-//     const newMessage = {
-//       id: createUniqueId(),
-//       text: currentChatMesage,
-//       currentUser,
-//       time: `${timeData.hr}:${timeData.mins}`,
-//     };
-
-//     socket.to("a").emit("groupMessage", newMessage);
-//     filteredGroup[0].messages.push(newMessage);
-//     socket.emit("groupList", chatgroups);
-//     socket.emit("foundGroup", filteredGroup[0].messages);
-//   });
-// });
-
 io.on("connection", (socket) => {
   console.log(`User Connected: ${socket.id}`);
-
+  socket.on("user-online", async (userId) => {
+    try {
+      const onlineUser = new Online({
+        user_id: userId,
+      });
+      const online = await Online.findOne({ user_id: userId });
+      if (!online) await onlineUser.save();
+    } catch (error) {
+      console.log("🚀 ~ socket.on ~ error:", error);
+    }
+    userStatus[userId] = true;
+    io.emit("user-status", { userId, status: "online" });
+  });
   socket.on("join_room", (data) => {
     socket.join(data);
     console.log(`User with ID: ${socket.id} joined room: ${data}`);
   });
 
-  socket.on("send_message", (data) => {
-    socket.to(data.room).emit("receive_message", data);
-  });
+  socket.on("send_message", async (data) => {
+    try {
+      const newMessage = new Message({
+        room_id: data.room_id,
+        sender_id: data.sender_id,
+        message: data.message,
+        create_at: data.create_at,
+      });
+      await newMessage.save();
+    } catch (error) {
+      console.log("Error sending message", error);
+    }
+    socket.emit("is_send");
+    socket.to(data.room_id).emit("receive_message", data);
 
+    console.log("🚀 ~ socket.on ~ data:", data);
+  });
+  socket.on("user-offline", async (userId) => {
+    try {
+      const offlineUser = await Online.findOneAndDelete({ user_id: userId });
+      console.log("🚀 ~ socket.on ~ offlineUser:", offlineUser);
+    } catch (error) {
+      console.log("🚀 ~ socket.on ~ error:", error);
+    }
+    userStatus[userId] = false;
+    io.emit("user-status", { userId, status: "offline" });
+  });
   socket.on("disconnect", () => {
+    for (let userId in userStatus) {
+      if (userStatus[userId] === socket.id) {
+        userStatus[userId] = false;
+        io.emit("user-status", { userId, status: "offline" });
+        break;
+      }
+    }
     console.log("User Disconnected", socket.id);
   });
 });
@@ -133,9 +117,9 @@ const io2 = new Server(server2, {
     methods: ["GET", "POST"],
   },
 });
-
 io2.on("connection", (socket) => {
   console.log("a user connected");
+
   socket.on("sendComment", () => {
     console.log("user comment");
     socket.emit("commented");
@@ -148,6 +132,7 @@ io2.on("connection", (socket) => {
     console.log("user likePost");
     socket.emit("bookmark");
   });
+
   socket.on("disconnect", () => {
     console.log("user disconnected");
   });
