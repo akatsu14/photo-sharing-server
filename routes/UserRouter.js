@@ -2,7 +2,6 @@ const express = require("express");
 const User = require("../db/userModel");
 const router = express.Router();
 const verifyToken = require("../middleware/auth");
-const getOrSetCache = require("../functions/cache");
 // router.post("/",verifyToken, async (request, response) => {});
 
 router.get("/me", verifyToken, async (request, response) => {
@@ -44,7 +43,6 @@ router.put("/me", verifyToken, async (req, res) => {
       new: true,
     }).select("-password");
     if (user) {
-      getOrSetCache(user._id + "", user);
       res.status(200).json({ success: true, data: user });
     } else res.status(404).json({ success: false, msg: "User not found" });
   } catch (err) {

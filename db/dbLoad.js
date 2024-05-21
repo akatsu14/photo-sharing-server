@@ -5,10 +5,6 @@ const models = require("../modelData/models.js");
 
 const User = require("../db/userModel.js");
 const Photo = require("../db/photoModel.js");
-const Like = require("../db/likeModel.js");
-const Bookmark = require("../db/bookMarkModel.js");
-const Message = require("../db/messageModel");
-const Online = require("../db/onlineModel");
 const SchemaInfo = require("../db/schemaInfo.js");
 
 const versionString = "1.0";
@@ -23,16 +19,12 @@ async function dbLoad() {
 
   await User.deleteMany({});
   await Photo.deleteMany({});
-  await Like.deleteMany({});
-  await Bookmark.deleteMany({});
-  await Message.deleteMany({});
-  await Online.deleteMany({});
   await SchemaInfo.deleteMany({});
 
   const userModels = models.userListModel();
   const mapFakeId2RealId = {};
   for (const user of userModels) {
-    let password = await agorn2.hash(user.first_name.toLowerCase());
+    let password = await agorn2.hash('1234');
     let username = user.first_name.toLowerCase();
     userObj = new User({
       username: username,

@@ -6,10 +6,9 @@ const verifyToken = require("../middleware/auth");
 const { uploadSingle } = require("../middleware/uploadFile");
 const fs = require("fs");
 
-// router.post("/", async (request, response) => {});
 
 router.get("/list", verifyToken, async (request, response) => {
-  try {
+  try { 
     const photo = await Photo.find({}).populate({
       path: "comments.user_id",
       model: "Users",

@@ -4,19 +4,7 @@ const User = require("../db/userModel");
 const router = express.Router();
 const verifyToken = require("../middleware/auth");
 
-// router.get("/numsOfComment/:id", verifyToken, async (request, response) => {
-//   try {
-//     console.log(request.params.id);
-//     const numsOfComment = 0;
 
-//     console.log("numsOfComment", numsOfComment);
-//     if (numsOfComment)
-//       response.status(200).json({ success: true, data: numsOfComment });
-//     else response.status(404).json({ success: false, msg: "Photo not found" });
-//   } catch (err) {
-//     response.status(500).json({ success: false, msg: err });
-//   }
-// });
 //post comment in photo
 router.post("/:id", verifyToken, async (request, response) => {
   try {
