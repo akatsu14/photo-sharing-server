@@ -7,14 +7,17 @@ const getOrSetCache = require("../functions/cache");
 
 // lấy danh sách 10 người chơi có điểm cao nhất
 router.get("/top", verifyToken, async (request, response) => {
+  console.log("🚀 ~ request:", request)
   try {
     const user = request.user;
+    console.log("🚀 ~ user:", user)
     delete user.password;
     // lấy danh sách 10 người chơi có điểm cao nhất
     const topUsers = await User.find({})
       .sort({ high_score: -1 })
       .limit(10)
       .select("-password");
+    console.log("🚀 ~ topUsers:", topUsers)
     // nếu có người chơi thì trả về danh sách
     if (topUsers)
       response.status(200).json({ success: true, data: topUsers });

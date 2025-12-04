@@ -6,6 +6,7 @@ const getOrSetCache = require("../functions/cache");
 // router.post("/",verifyToken, async (request, response) => {});
 
 router.get("/me", verifyToken, async (request, response) => {
+  console.log("🚀 ~ request:", request.user)
   try {
     const user = request.user;
     delete user.password;

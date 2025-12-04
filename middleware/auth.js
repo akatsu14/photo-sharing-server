@@ -2,7 +2,6 @@ const jwt = require("jsonwebtoken");
 const getOrSetCache = require("../functions/cache");
 
 const verifyToken = (req, res, next) => {
-  console.log("🚀 ~ verifyToken ~ req.headers:", req.headers);
   const authHeader = req.header("Authorization");
   const token = authHeader && authHeader.split(" ")[1];
   console.log("🚀 ~ verifyToken ~ token:", token);

@@ -6,9 +6,11 @@ const { Server } = require("socket.io");
 
 const dbConnect = require("./db/dbConnect");
 const UserRouter = require("./routes/UserRouter");
+const BXHRouter = require("./routes/BXHRouter");
 // const PhotoRouter = require("./routes/PhotoRouter");
 // const CommentRouter = require("./routes/CommentRouter");
 const AuthRouter = require("./routes/AuthRouter");
+
 // const BookmarkRouter = require("./routes/BookmarkRouter");
 // const LikeRouter = require("./routes/LikeRouter");
 // const MessageRouter = require("./routes/MessageRouter");
@@ -23,6 +25,7 @@ app.use(express.json());
 // app.use("/uploads", express.static("uploads"));
 app.use("/admin", AuthRouter);
 app.use("/api/user", UserRouter);
+app.use("/api/bxh", BXHRouter);
 // app.use("/api/photosOfUser", PhotoRouter);
 // app.use("/api/likeOfPhoto", LikeRouter);
 // app.use("/api/bookmarkOfPhoto", BookmarkRouter);
