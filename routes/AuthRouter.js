@@ -11,11 +11,8 @@ router.post("/register", async (req, res) => {
   const {
     username,
     password,
-    first_name,
-    last_name,
-    location,
-    description,
-    occupation,
+    full_name,
+    email,
   } = req.body;
   if (!username || !password)
     return res
@@ -36,11 +33,8 @@ router.post("/register", async (req, res) => {
     const newUser = new User({
       username,
       password: hashedPassword,
-      first_name,
-      last_name,
-      location,
-      description,
-      occupation,
+      full_name,
+      email,
     });
     await newUser.save();
     // Return token
