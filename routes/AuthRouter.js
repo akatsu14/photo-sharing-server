@@ -103,7 +103,7 @@ router.post("/login", async (req, res) => {
           console.log("🚀 ~ router.post ~ afterCache2:", user._id + "");
           res.status(200).json({
             success: true,
-            // data: user,
+             data: user,
             msg: "User logged in successfully",
             token,
           });

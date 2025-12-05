@@ -152,16 +152,29 @@ const io3 = new Server(server3, {
     methods: ["GET", "POST"],
   },
 });
+let quickMatchQueue = []; 
 io3.on("connection", (socket) => {
   console.log("a user connected to game server");
   socket.on("createRoom", (roomId) => {
     socket.join(roomId);
     console.log(`User with ID: ${socket.id} created room: ${roomId}`);
   });
+socket.on("game_end", (roomId) => {
+    socket.emit("game_end_frontend");
+    console.log('Game ended');
+  });
+  // Thay đổi trong file server (io3)
 
+socket.on("start_game", (data) => {
+    const roomId = data.roomId;
+    console.log(`Host in room ${roomId} started the game.`);
+    // Broadcast lệnh bắt đầu game cho tất cả người chơi trong phòng
+    io3.to(roomId).emit("start_game_frontend"); 
+});
   socket.on("joinRoom", (roomId) => {
     socket.join(roomId);
     console.log(`User with ID: ${socket.id} joined room: ${roomId}`);
+    socket.to(roomId).emit("player_joined", { msg: "A new player joined" });
   });
   socket.on("sendGameData", (data) => {
     socket.to(data.roomId).emit("receiveGameData", data);
@@ -171,8 +184,65 @@ io3.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("user disconnected from game server");
   });
+  // Thêm code này vào khối io3.on("connection", (socket) => { ... });
+
+// Dùng mảng tạm thời cho hàng đợi tìm trận (đơn giản hóa, không có logic xếp hạng)
+
+
+
+socket.on("joinQueue", (userId) => {
+  console.log("Quick Match Queue initialized.", quickMatchQueue, userId);
+    // Ngăn chặn trùng lặp, nếu đã có trong hàng đợi thì không thêm nữa
+    if (!quickMatchQueue.includes(userId)) {
+        quickMatchQueue.push({ userId, socketId: socket.id });
+        console.log(`User ${userId} joined the queue. Queue size: ${quickMatchQueue.length}`);
+    }
+
+    // Kiểm tra tìm trận (cần 2 người)
+    if (quickMatchQueue.length >= 2) {
+        const player1 = quickMatchQueue.shift(); // Lấy người chơi 1 (Host)
+        const player2 = quickMatchQueue.shift(); // Lấy người chơi 2 (Guest)
+        
+        // Tạo một Room ID ngẫu nhiên cho trận đấu này
+        const matchRoomId = "QM-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        // 1. Thêm 2 người chơi vào Room
+        const p1Socket = io3.sockets.sockets.get(player1.socketId);
+        const p2Socket = io3.sockets.sockets.get(player2.socketId);
+        
+        p1Socket.join(matchRoomId);
+        p2Socket.join(matchRoomId);
+
+        console.log(`Match found: ${player1.userId} vs ${player2.userId} in room ${matchRoomId}`);
+
+        // 2. Gửi sự kiện matchFound cho cả 2 người chơi
+        const matchData = { 
+            roomId: matchRoomId, 
+            hostId: player1.userId,
+            guestId: player2.userId 
+        };
+
+        // Gửi cho cả hai người chơi
+        io3.to(matchRoomId).emit("matchFound", matchData);
+    }
 });
 
+// Xử lý khi người chơi sẵn sàng
+socket.on("ready", (data) => {
+    const { roomId, userId } = data;
+    
+    // Gửi thông báo cho toàn bộ phòng (trừ người gửi) rằng có người đã sẵn sàng
+    socket.to(roomId).emit("playerReady", userId);
+});
+
+// Xử lý khi ngắt kết nối
+socket.on("disconnectquickmatch", () => {
+    console.log("user disconnected from quickmatch");
+    
+    // Loại bỏ người chơi khỏi hàng đợi nếu họ đang tìm trận
+    quickMatchQueue = quickMatchQueue.filter(p => p.socketId !== socket.id);
+});
+});
 server3.listen(8082, () => {
   console.log("game server running at http://localhost:8082");
 });
