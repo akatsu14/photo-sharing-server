@@ -10,6 +10,8 @@ const BXHRouter = require("./routes/BXHRouter");
 // const PhotoRouter = require("./routes/PhotoRouter");
 // const CommentRouter = require("./routes/CommentRouter");
 const AuthRouter = require("./routes/AuthRouter");
+const User = require("./db/userModel");
+const { hostname } = require("node:os");
 
 // const BookmarkRouter = require("./routes/BookmarkRouter");
 // const LikeRouter = require("./routes/LikeRouter");
@@ -190,14 +192,13 @@ socket.on("start_game", (data) => {
 
 
 
-socket.on("joinQueue", (userId) => {
+socket.on("joinQueue", async (userId) => {
   console.log("Quick Match Queue initialized.", quickMatchQueue, userId);
     // Ngăn chặn trùng lặp, nếu đã có trong hàng đợi thì không thêm nữa
     if (!quickMatchQueue.includes(userId)) {
         quickMatchQueue.push({ userId, socketId: socket.id });
         console.log(`User ${userId} joined the queue. Queue size: ${quickMatchQueue.length}`);
     }
-
     // Kiểm tra tìm trận (cần 2 người)
     if (quickMatchQueue.length >= 2) {
         const player1 = quickMatchQueue.shift(); // Lấy người chơi 1 (Host)
@@ -214,16 +215,25 @@ socket.on("joinQueue", (userId) => {
         p2Socket.join(matchRoomId);
 
         console.log(`Match found: ${player1.userId} vs ${player2.userId} in room ${matchRoomId}`);
-
-        // 2. Gửi sự kiện matchFound cho cả 2 người chơi
-        const matchData = { 
+try {
+      const player1inf = await User.findOne({ _id: player1.userId });
+      console.log("🚀 ~ socket.on ~ player1inf:", player1inf);
+      const player2inf   = await User.findOne({ _id: player2.userId });
+      const matchData = { 
             roomId: matchRoomId, 
             hostId: player1.userId,
-            guestId: player2.userId 
+            guestId: player2.userId,
+            hostfullname: player1inf.full_name,
+            guestfullname: player2inf.full_name,
         };
 
         // Gửi cho cả hai người chơi
         io3.to(matchRoomId).emit("matchFound", matchData);
+    } catch (error) {
+      console.log("🚀 ~ socket.on ~ error:", error);
+    }
+        // 2. Gửi sự kiện matchFound cho cả 2 người chơi
+        
     }
 });
 
