@@ -148,31 +148,54 @@ app.listen(8081, () => {
 
 // tạo 1 server websocket lắng nghe sự kiện tạo phòng chờ khi chơi game 2 người 
 const server3 = createServer(app);
+let privateRooms = new Map();
 const io3 = new Server(server3, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"],
   },
 });
-let quickMatchQueue = []; 
+const DIFFICULTY_LEVELS = {
+  EASY: { name: "easy", minScore: 0, maxScore: 1000 },
+  MEDIUM: { name: "medium", minScore: 1001, maxScore: 2000 },
+  HARD: { name: "hard", minScore: 2001, maxScore: Infinity }
+};
+
+let quickMatchQueue = [];
+
+// Helper function to get difficulty level based on high_score
+function getDifficultyLevel(highScore) {
+  for (const [key, level] of Object.entries(DIFFICULTY_LEVELS)) {
+    if (highScore >= level.minScore && highScore <= level.maxScore) {
+      return level.name;
+    }
+  }
+  return DIFFICULTY_LEVELS.HARD.name;
+}
+
+// Helper function to find match by difficulty level
+function findMatchByDifficulty(difficulty) {
+  return quickMatchQueue.find(p => p.difficulty === difficulty);
+}
+
 io3.on("connection", (socket) => {
   console.log("a user connected to game server");
   socket.on("createRoom", (roomId) => {
     socket.join(roomId);
     console.log(`User with ID: ${socket.id} created room: ${roomId}`);
   });
-socket.on("game_end", (roomId) => {
+  socket.on("game_end", (roomId) => {
     socket.emit("game_end_frontend");
     console.log('Game ended');
   });
   // Thay đổi trong file server (io3)
 
-socket.on("start_game", (data) => {
+  socket.on("start_game", (data) => {
     const roomId = data.roomId;
     console.log(`Host in room ${roomId} started the game.`);
     // Broadcast lệnh bắt đầu game cho tất cả người chơi trong phòng
-    io3.to(roomId).emit("start_game_frontend"); 
-});
+    io3.to(roomId).emit("start_game_frontend");
+  });
   socket.on("joinRoom", (roomId) => {
     socket.join(roomId);
     console.log(`User with ID: ${socket.id} joined room: ${roomId}`);
@@ -188,70 +211,216 @@ socket.on("start_game", (data) => {
   });
   // Thêm code này vào khối io3.on("connection", (socket) => { ... });
 
-// Dùng mảng tạm thời cho hàng đợi tìm trận (đơn giản hóa, không có logic xếp hạng)
-
-
-
-socket.on("joinQueue", async (userId) => {
-  console.log("Quick Match Queue initialized.", quickMatchQueue, userId);
-    // Ngăn chặn trùng lặp, nếu đã có trong hàng đợi thì không thêm nữa
-    if (!quickMatchQueue.includes(userId)) {
-        quickMatchQueue.push({ userId, socketId: socket.id });
-        console.log(`User ${userId} joined the queue. Queue size: ${quickMatchQueue.length}`);
+  // Dùng mảng tạm thời cho hàng đợi tìm trận (đơn giản hóa, không có logic xếp hạng)
+  // --- SỰ KIỆN TẠO PHÒNG MỚI ---
+  // Client sẽ gửi roomCode, roomName, password, và userId của Host
+  socket.on("createPrivateRoom", (data) => {
+    const { roomCode, roomName, password, userId } = data;
+    console.log("🚀 ~ socket.on ~ createPrivateRoom data:", roomCode, roomName, password, userId)
+    if (privateRooms.has(roomCode)) {
+      socket.emit("roomError", { msg: "Phòng đã tồn tại." });
+      return;
     }
-    // Kiểm tra tìm trận (cần 2 người)
-    if (quickMatchQueue.length >= 2) {
-        const player1 = quickMatchQueue.shift(); // Lấy người chơi 1 (Host)
-        const player2 = quickMatchQueue.shift(); // Lấy người chơi 2 (Guest)
-        
-        // Tạo một Room ID ngẫu nhiên cho trận đấu này
+
+    // Lưu thông tin phòng và Host
+    privateRooms.set(roomCode, {
+      roomName,
+      password,
+      hostId: userId,
+      hostSocketId: socket.id,
+      players: [userId],
+      isLocked: (password && password.length > 0)
+    });
+
+    socket.join(roomCode);
+    console.log(`User with ID: ${socket.id} created room:${roomCode} (${roomName}`);
+
+
+    // Gửi xác nhận tạo phòng thành công cho Host
+    socket.emit("roomCreatedSuccess", { roomCode, roomName, isLocked: privateRooms.get(roomCode).isLocked });
+  });
+
+  // --- SỰ KIỆN THAM GIA PHÒNG ---
+  socket.on("joinPrivateRoom", async (data) => {
+    const { roomCode, password, userId } = data;
+    console.log("🚀 ~ socket.on ~ joinPrivateRoom data:", roomCode, password, userId)
+    // Fetch user information
+    const user = await User.findOne({ _id: userId });
+    const roomInfo = privateRooms.get(roomCode);
+    const hostInfo = await User.findOne({ _id: roomInfo?.hostId });
+    console.log("🚀 ~ socket.on ~ roomInfo:", roomInfo)
+
+    if (!roomInfo) {
+      socket.emit("roomError", { msg: "Mã phòng không tồn tại." });
+      return;
+    }
+    if (roomInfo.isLocked && roomInfo.password !== password) {
+      socket.emit("roomError", { msg: "Sai mật khẩu phòng." });
+      return;
+    }
+    if (roomInfo.players.length >= 2) {
+      socket.emit("roomError", { msg: "Phòng đã đầy." });
+      return;
+    }
+
+    // Thêm người chơi vào phòng
+    roomInfo.players.push(userId);
+    socket.join(roomCode);
+    console.log(`User with ID: ${userId} joined room:${roomCode}`);
+
+    // Cập nhật thông tin phòng
+    privateRooms.set(roomCode, roomInfo);
+
+    // 1. Gửi xác nhận tham gia thành công cho Guest
+    socket.emit("roomJoinedSuccess", { roomCode, roomName: roomInfo.roomName,hostName: hostInfo?.full_name ?? '' });
+
+    // 2. Gửi thông báo cho Host biết Guest đã tham gia
+    socket.to(roomCode).emit("player_joined", {
+      guestId: userId,
+      guestName: user?.full_name ?? '', // TODO: Fetch full_name from DB
+      
+    });
+  });
+  socket.on("joinQueue", async (userId) => {
+    try {
+      console.log("Quick Match Queue initialized.", quickMatchQueue, userId);
+
+      // Fetch user information
+      const user = await User.findOne({ _id: userId });
+      console.log("🚀 ~ user:", user)
+
+      if (!user) {
+        socket.emit("queueError", { message: "User not found" });
+        return;
+      }
+
+      // Get difficulty level based on user's high_score
+      const difficulty = getDifficultyLevel(user.high_score);
+
+      // Prevent duplicates
+      const userExists = quickMatchQueue.some(p => p.userId === userId);
+      if (userExists) {
+        socket.emit("queueError", { message: "Already in queue" });
+        return;
+      }
+
+      // Add user to queue with their difficulty level
+      quickMatchQueue.push({
+        userId,
+        socketId: socket.id,
+        difficulty,
+        high_score: user.high_score,
+        full_name: user.full_name
+      });
+      console.log("🚀 ~ quickMatchQueue:", quickMatchQueue)
+
+      console.log(`User ${userId} joined the queue with difficulty: ${difficulty}. Queue size: ${quickMatchQueue.length}`);
+
+      // Check for match in the same difficulty
+      const matchedPlayer = findMatchByDifficulty(difficulty);
+      console.log("🚀 ~ matchedPlayer:", matchedPlayer)
+
+      if (matchedPlayer && matchedPlayer.userId !== userId) {
+        // Remove both players from queue
+        quickMatchQueue = quickMatchQueue.filter(p => p.userId !== userId && p.userId !== matchedPlayer.userId);
+
+        // Create a random Room ID
         const matchRoomId = "QM-" + Math.random().toString(36).substring(2, 8).toUpperCase();
 
-        // 1. Thêm 2 người chơi vào Room
-        const p1Socket = io3.sockets.sockets.get(player1.socketId);
-        const p2Socket = io3.sockets.sockets.get(player2.socketId);
-        
-        p1Socket.join(matchRoomId);
-        p2Socket.join(matchRoomId);
+        // Get sockets
+        const player1Socket = io3.sockets.sockets.get(matchedPlayer.socketId);
+        const player2Socket = io3.sockets.sockets.get(socket.id);
 
-        console.log(`Match found: ${player1.userId} vs ${player2.userId} in room ${matchRoomId}`);
-try {
-      const player1inf = await User.findOne({ _id: player1.userId });
-      console.log("🚀 ~ socket.on ~ player1inf:", player1inf);
-      const player2inf   = await User.findOne({ _id: player2.userId });
-      const matchData = { 
-            roomId: matchRoomId, 
-            hostId: player1.userId,
-            guestId: player2.userId,
-            hostfullname: player1inf.full_name,
-            guestfullname: player2inf.full_name,
-        };
+        if (player1Socket && player2Socket) {
+          player1Socket.join(matchRoomId);
+          player2Socket.join(matchRoomId);
 
-        // Gửi cho cả hai người chơi
-        io3.to(matchRoomId).emit("matchFound", matchData);
+          console.log(`Match found: ${matchedPlayer.userId} vs ${userId} in room ${matchRoomId} (Difficulty: ${difficulty})`);
+
+          const matchData = {
+            roomId: matchRoomId,
+            hostId: matchedPlayer.userId,
+            guestId: userId,
+            hostfullname: matchedPlayer.full_name,
+            guestfullname: user.full_name,
+            difficulty: difficulty,
+            hostScore: matchedPlayer.high_score,
+            guestScore: user.high_score
+          };
+          console.log("🚀 ~ matchData:", matchData)
+
+          // Send match found event to both players
+          io3.to(matchRoomId).emit("matchFound", matchData);
+        }
+      }
     } catch (error) {
-      console.log("🚀 ~ socket.on ~ error:", error);
+      console.log("🚀 ~ socket.on ~ joinQueue error:", error);
+      socket.emit("queueError", { message: "Error joining queue" });
     }
-        // 2. Gửi sự kiện matchFound cho cả 2 người chơi
-        
-    }
-});
+  });
 
-// Xử lý khi người chơi sẵn sàng
-socket.on("ready", (data) => {
+  // socket.on("joinQueue", async (userId) => {
+  //   console.log("Quick Match Queue initialized.", quickMatchQueue, userId);
+  //   // Ngăn chặn trùng lặp, nếu đã có trong hàng đợi thì không thêm nữa
+  //   if (!quickMatchQueue.includes(userId)) {
+  //     quickMatchQueue.push({ userId, socketId: socket.id });
+  //     console.log(`User ${userId} joined the queue. Queue size: ${quickMatchQueue.length}`);
+  //   }
+  //   // Kiểm tra tìm trận (cần 2 người)
+  //   if (quickMatchQueue.length >= 2) {
+  //     const player1 = quickMatchQueue.shift(); // Lấy người chơi 1 (Host)
+  //     const player2 = quickMatchQueue.shift(); // Lấy người chơi 2 (Guest)
+
+  //     // Tạo một Room ID ngẫu nhiên cho trận đấu này
+  //     const matchRoomId = "QM-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  //     // 1. Thêm 2 người chơi vào Room
+  //     const p1Socket = io3.sockets.sockets.get(player1.socketId);
+  //     const p2Socket = io3.sockets.sockets.get(player2.socketId);
+
+  //     p1Socket.join(matchRoomId);
+  //     p2Socket.join(matchRoomId);
+
+  //     console.log(`Match found: ${player1.userId} vs ${player2.userId} in room ${matchRoomId}`);
+  //     // let player1inf, player2inf;
+  //     // try {
+  //     //   player1inf = await User.findOne({ _id: player1.userId });
+  //     //   console.log("🚀 ~ socket.on ~ player1inf:", player1inf);
+  //     //   player2inf = await User.findOne({ _id: player2.userId });
+  //     //   console.log("🚀 ~ socket.on ~ player1inf:", player2inf);
+  //     // } catch (error) {
+  //     //   console.log("🚀 ~ socket.on ~ error:", error);
+  //     // }
+  //     // 2. Gửi sự kiện matchFound cho cả 2 người chơi
+  //     const matchData = {
+  //       roomId: matchRoomId,
+  //       hostId: player1.userId,
+  //       guestId: player2.userId,
+  //       hostfullname: '',
+  //       guestfullname: '',
+  //     };
+
+  //     // Gửi cho cả hai người chơi
+  //     io3.to(matchRoomId).emit("matchFound", matchData);
+  //   }
+  // });
+
+  // Xử lý khi người chơi sẵn sàng
+
+  socket.on("ready", (data) => {
     const { roomId, userId } = data;
-    
+
     // Gửi thông báo cho toàn bộ phòng (trừ người gửi) rằng có người đã sẵn sàng
     socket.to(roomId).emit("playerReady", userId);
-});
+  });
 
-// Xử lý khi ngắt kết nối
-socket.on("disconnectquickmatch", () => {
+  // Xử lý khi ngắt kết nối
+  socket.on("disconnectquickmatch", () => {
     console.log("user disconnected from quickmatch");
-    
+
     // Loại bỏ người chơi khỏi hàng đợi nếu họ đang tìm trận
     quickMatchQueue = quickMatchQueue.filter(p => p.socketId !== socket.id);
-});
+  });
 });
 server3.listen(8082, () => {
   console.log("game server running at http://localhost:8082");
