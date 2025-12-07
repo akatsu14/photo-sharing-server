@@ -178,6 +178,35 @@ socket.on("start_game", (data) => {
     console.log(`User with ID: ${socket.id} joined room: ${roomId}`);
     socket.to(roomId).emit("player_joined", { msg: "A new player joined" });
   });
+
+  // Xử lý tạo phòng riêng tư
+  socket.on("createPrivateRoom", async (data) => {
+    const { roomCode, roomName, password, userId } = data;
+    socket.join(roomCode);
+    console.log(`✅ User ${userId} created private room: ${roomCode}`);
+    socket.emit("roomCreatedSuccess", { roomCode, roomName });
+  });
+
+  // Xử lý tham gia phòng riêng tư
+  socket.on("joinPrivateRoom", async (data) => {
+    const { roomCode, password, userId } = data;
+    socket.join(roomCode);
+    console.log(`✅ User ${userId} joined private room: ${roomCode}`);
+    
+    try {
+      const guestUser = await User.findOne({ _id: userId });
+      const guestName = guestUser ? guestUser.full_name : "Người chơi 2";
+      
+      // Thông báo cho host
+      socket.to(roomCode).emit("player_joined", { guestName });
+      
+      // Thông báo cho guest
+      socket.emit("roomJoinedSuccess", { roomCode });
+    } catch (error) {
+      console.log("Error joining room:", error);
+      socket.emit("roomError", { msg: "Không thể tham gia phòng" });
+    }
+  });
   socket.on("sendGameData", (data) => {
     socket.to(data.roomId).emit("receiveGameData", data);
     console.log("🚀 ~ socket.on ~ data:", data);
@@ -248,10 +277,11 @@ socket.on("ready", (data) => {
 // Xử lý cập nhật điểm số
 socket.on("updateScore", (data) => {
     const { roomId, userId, score } = data;
-    console.log(`Score update from ${userId} in room ${roomId}: ${score}`);
+    console.log(`📊 Score update from ${userId} in room ${roomId}: ${score}`);
     
     // Broadcast điểm số cho tất cả người chơi trong phòng (bao gồm cả người gửi)
     io3.to(roomId).emit("scoreUpdate", { userId, score });
+    console.log(`✅ Broadcasted scoreUpdate to room ${roomId}`);
 });
 
 // Xử lý khi ngắt kết nối
