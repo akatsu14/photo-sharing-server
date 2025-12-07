@@ -188,18 +188,26 @@ io3.on("connection", (socket) => {
   // Thay đổi trong file server (io3)
 
   socket.on("start_game", (data) => {
-    const { roomId, difficulty } = data;
-    console.log(`Host in room ${roomId} started the game with difficulty: ${difficulty || 'EASY'}`);
-    // Broadcast lệnh bắt đầu game cho tất cả người chơi trong phòng
-    io3.to(roomId).emit("start_game_frontend", { difficulty: difficulty || 'EASY' });
+    const { roomId, difficulty, winningScore } = data;
+    console.log(`Host in room ${roomId} started game - Difficulty: ${difficulty || 'EASY'}, Winning Score: ${winningScore || 70}`);
+    io3.to(roomId).emit("start_game_frontend", { 
+      difficulty: difficulty || 'EASY',
+      winningScore: winningScore || 70
+    });
   });
   
   // Xử lý thay đổi độ khó
   socket.on("difficultyChanged", (data) => {
     const { roomId, difficulty } = data;
     console.log(`⚔️ Difficulty changed in room ${roomId}: ${difficulty}`);
-    // Broadcast độ khó cho người chơi khác trong phòng
     socket.to(roomId).emit("difficultyChanged", { difficulty });
+  });
+  
+  // Xử lý thay đổi điểm chiến thắng
+  socket.on("winningScoreChanged", (data) => {
+    const { roomId, winningScore } = data;
+    console.log(`🏆 Winning score changed in room ${roomId}: ${winningScore}`);
+    socket.to(roomId).emit("winningScoreChanged", { winningScore });
   });
   socket.on("joinRoom", (roomId) => {
     socket.join(roomId);
