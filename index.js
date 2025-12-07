@@ -386,7 +386,7 @@ io3.on("connection", (socket) => {
             hostfullname: matchedPlayer.full_name,
             guestfullname: user.full_name,
             difficulty: difficulty,
-            winningScore: 500,
+            winningScore: 200,
             hostScore: matchedPlayer.high_score,
             guestScore: user.high_score
           };
