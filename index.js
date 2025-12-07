@@ -245,6 +245,15 @@ socket.on("ready", (data) => {
     socket.to(roomId).emit("playerReady", userId);
 });
 
+// Xử lý cập nhật điểm số
+socket.on("updateScore", (data) => {
+    const { roomId, userId, score } = data;
+    console.log(`Score update from ${userId} in room ${roomId}: ${score}`);
+    
+    // Broadcast điểm số cho tất cả người chơi trong phòng (bao gồm cả người gửi)
+    io3.to(roomId).emit("scoreUpdate", { userId, score });
+});
+
 // Xử lý khi ngắt kết nối
 socket.on("disconnectquickmatch", () => {
     console.log("user disconnected from quickmatch");
