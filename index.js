@@ -184,10 +184,7 @@ io3.on("connection", (socket) => {
     socket.join(roomId);
     console.log(`User with ID: ${socket.id} created room: ${roomId}`);
   });
-  socket.on("game_end", (roomId) => {
-    socket.emit("game_end_frontend");
-    console.log('Game ended');
-  });
+  
   // Thay đổi trong file server (io3)
 
   socket.on("start_game", (data) => {
@@ -452,6 +449,17 @@ socket.on("updateScore", (data) => {
     // Broadcast điểm số cho tất cả người chơi trong phòng (bao gồm cả người gửi)
     io3.to(roomId).emit("scoreUpdate", { userId, score });
     console.log(`✅ Broadcasted scoreUpdate to room ${roomId} - Data:`, { userId, score });
+});
+
+// Xử lý kết thúc game
+socket.on("gameOver", (data) => {
+    console.log("🏆 RECEIVED gameOver event:", data);
+    const { roomId, winnerId, winnerScore } = data;
+    console.log(`🏆 Game over in room ${roomId}! Winner: ${winnerId} with score: ${winnerScore}`);
+    
+    // Broadcast gameOver cho tất cả người chơi trong phòng
+    io3.to(roomId).emit("gameOver", { winnerId, winnerScore });
+    console.log(`✅ Broadcasted gameOver to room ${roomId}`);
 });
 
 // Xử lý khi ngắt kết nối
