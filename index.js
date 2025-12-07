@@ -188,10 +188,18 @@ io3.on("connection", (socket) => {
   // Thay đổi trong file server (io3)
 
   socket.on("start_game", (data) => {
-    const roomId = data.roomId;
-    console.log(`Host in room ${roomId} started the game.`);
+    const { roomId, difficulty } = data;
+    console.log(`Host in room ${roomId} started the game with difficulty: ${difficulty || 'EASY'}`);
     // Broadcast lệnh bắt đầu game cho tất cả người chơi trong phòng
-    io3.to(roomId).emit("start_game_frontend");
+    io3.to(roomId).emit("start_game_frontend", { difficulty: difficulty || 'EASY' });
+  });
+  
+  // Xử lý thay đổi độ khó
+  socket.on("difficultyChanged", (data) => {
+    const { roomId, difficulty } = data;
+    console.log(`⚔️ Difficulty changed in room ${roomId}: ${difficulty}`);
+    // Broadcast độ khó cho người chơi khác trong phòng
+    socket.to(roomId).emit("difficultyChanged", { difficulty });
   });
   socket.on("joinRoom", (roomId) => {
     socket.join(roomId);
